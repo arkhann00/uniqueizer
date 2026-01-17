@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Проверяем установку FFmpeg
@@ -29,5 +30,5 @@ RUN mkdir -p /app/uploads /app/outputs && \
 # Открываем порт
 EXPOSE 5847
 
-# Запускаем приложение с Gunicorn для production
-CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5847", "--timeout", "300", "--access-logfile", "-", "--error-logfile", "-"]
+# Запускаем с uvicorn (БЕЗ gunicorn)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5847", "--workers", "4"]
