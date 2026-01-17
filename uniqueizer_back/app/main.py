@@ -230,80 +230,40 @@ async def download_archive(task_id: str, background_tasks: BackgroundTasks):
     """
     logger.info(f"🔍 Archive download request for task: {task_id}")
     
-    # Получаем информацию о задаче
-    task = processor.get_task_status(task_id)
-    
-    if not task:
-        logger.error(f"❌ Task not found in processor: {task_id}")
-        raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
-    
-    logger.info(f"📊 Task status: {task['status']}")
-    logger.info(f"📦 Archive field in task: {task.get('archive')}")
-    
-    if task['status'] != 'completed':
-        logger.error(f"❌ Task not completed: status={task['status']}")
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Задача не завершена. Статус: {task['status']}"
-        )
-    
-    if not task.get('archive'):
-        logger.error(f"❌ Archive field is empty in task data")
-        raise HTTPException(status_code=404, detail="Информация об архиве отсутствует")
-    
-    # Формируем путь к директории задачи напрямую
+    # Прямая проверка файловой системы вместо processor
     task_dir = settings.output_dir / task_id
     
-    logger.info(f"📁 Task directory path: {task_dir}")
-    logger.info(f"📁 Task directory exists: {task_dir.exists()}")
+    logger.info(f"📁 Checking task directory: {task_dir}")
     
     if not task_dir.exists():
         logger.error(f"❌ Task directory not found: {task_dir}")
-        raise HTTPException(status_code=404, detail="Директория задачи не найдена")
+        raise HTTPException(status_code=404, detail="Задача не найдена")
     
-    # Получаем имя архива из task
-    archive_name = task['archive']
-    archive_path = task_dir / archive_name
+    # Ищем zip файлы в директории
+    zip_files = list(task_dir.glob("*.zip"))
     
-    logger.info(f"📦 Looking for archive: {archive_name}")
-    logger.info(f"📦 Full archive path: {archive_path}")
-    logger.info(f"📦 Archive exists: {archive_path.exists()}")
+    logger.info(f"📦 Found {len(zip_files)} zip files")
     
-    # Если архив не найден, пытаемся найти любой zip
-    if not archive_path.exists():
-        logger.warning(f"⚠️  Archive not found at expected path, searching for zip files...")
-        
-        # Список всех файлов в директории
+    if not zip_files:
+        logger.error(f"❌ No zip files in directory")
         all_files = list(task_dir.iterdir())
-        logger.info(f"📂 Files in directory: {[f.name for f in all_files]}")
-        
-        # Ищем zip файлы
-        zip_files = [f for f in all_files if f.suffix == '.zip']
-        logger.info(f"📦 Found zip files: {[f.name for f in zip_files]}")
-        
-        if not zip_files:
-            logger.error(f"❌ No zip files found in {task_dir}")
-            raise HTTPException(status_code=404, detail=f"Архив не найден")
-        
-        # Берем первый найденный zip
-        archive_path = zip_files[0]
-        logger.info(f"✅ Using zip file: {archive_path.name}")
+        logger.error(f"Directory contains: {[f.name for f in all_files]}")
+        raise HTTPException(status_code=404, detail="Архив не найден")
     
-    # Проверяем размер
+    # Берем первый zip файл
+    archive_path = zip_files[0]
     archive_size = archive_path.stat().st_size
-    logger.info(f"📦 Archive size: {archive_size} bytes ({archive_size / (1024*1024):.2f} MB)")
+    
+    logger.info(f"✅ Found archive: {archive_path.name}, size: {archive_size} bytes")
     
     if archive_size == 0:
-        logger.error(f"❌ Archive is empty!")
+        logger.error(f"❌ Archive is empty")
         raise HTTPException(status_code=500, detail="Архив пустой")
     
-    # Добавляем фоновую задачу для удаления
+    # Планируем удаление после скачивания
     background_tasks.add_task(cleanup_task_after_download, task_id)
-    logger.info(f"🗑️  Scheduled cleanup for task {task_id}")
+    logger.info(f"🗑️  Scheduled cleanup after download")
     
-    logger.info(f"✅ Serving archive: {archive_path.name} ({archive_size} bytes)")
-    
-    # Возвращаем файл
     return FileResponse(
         path=str(archive_path),
         filename=f"unique_videos_{task_id}.zip",
