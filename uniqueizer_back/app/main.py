@@ -228,49 +228,91 @@ async def download_archive(task_id: str, background_tasks: BackgroundTasks):
     """
     Скачивает архив со всеми видео и автоматически удаляет файлы
     """
-    logger.info(f"Archive download request: task={task_id}")
+    logger.info(f"🔍 Archive download request for task: {task_id}")
     
+    # Получаем информацию о задаче
     task = processor.get_task_status(task_id)
     
     if not task:
-        logger.error(f"Task not found: {task_id}")
-        raise HTTPException(status_code=404, detail="Задача не найдена")
+        logger.error(f"❌ Task not found in processor: {task_id}")
+        raise HTTPException(status_code=404, detail=f"Задача {task_id} не найдена")
+    
+    logger.info(f"📊 Task status: {task['status']}")
+    logger.info(f"📦 Archive field in task: {task.get('archive')}")
     
     if task['status'] != 'completed':
-        logger.error(f"Task not completed: {task_id}, status: {task['status']}")
-        raise HTTPException(status_code=400, detail=f"Задача не завершена. Статус: {task['status']}")
+        logger.error(f"❌ Task not completed: status={task['status']}")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Задача не завершена. Статус: {task['status']}"
+        )
     
     if not task.get('archive'):
-        logger.error(f"Archive not found in task data: {task_id}")
-        raise HTTPException(status_code=404, detail="Архив не готов")
+        logger.error(f"❌ Archive field is empty in task data")
+        raise HTTPException(status_code=404, detail="Информация об архиве отсутствует")
     
-    task_dir = processor.get_task_files(task_id)
-    if not task_dir:
-        logger.error(f"Task directory not found: {task_id}")
+    # Формируем путь к директории задачи напрямую
+    task_dir = settings.output_dir / task_id
+    
+    logger.info(f"📁 Task directory path: {task_dir}")
+    logger.info(f"📁 Task directory exists: {task_dir.exists()}")
+    
+    if not task_dir.exists():
+        logger.error(f"❌ Task directory not found: {task_dir}")
         raise HTTPException(status_code=404, detail="Директория задачи не найдена")
     
-    archive_path = task_dir / task['archive']
+    # Получаем имя архива из task
+    archive_name = task['archive']
+    archive_path = task_dir / archive_name
     
+    logger.info(f"📦 Looking for archive: {archive_name}")
+    logger.info(f"📦 Full archive path: {archive_path}")
+    logger.info(f"📦 Archive exists: {archive_path.exists()}")
+    
+    # Если архив не найден, пытаемся найти любой zip
     if not archive_path.exists():
-        logger.error(f"Archive file not found: {archive_path}")
-        raise HTTPException(status_code=404, detail="Архив не найден на диске")
+        logger.warning(f"⚠️  Archive not found at expected path, searching for zip files...")
+        
+        # Список всех файлов в директории
+        all_files = list(task_dir.iterdir())
+        logger.info(f"📂 Files in directory: {[f.name for f in all_files]}")
+        
+        # Ищем zip файлы
+        zip_files = [f for f in all_files if f.suffix == '.zip']
+        logger.info(f"📦 Found zip files: {[f.name for f in zip_files]}")
+        
+        if not zip_files:
+            logger.error(f"❌ No zip files found in {task_dir}")
+            raise HTTPException(status_code=404, detail=f"Архив не найден")
+        
+        # Берем первый найденный zip
+        archive_path = zip_files[0]
+        logger.info(f"✅ Using zip file: {archive_path.name}")
     
+    # Проверяем размер
     archive_size = archive_path.stat().st_size
-    logger.info(f"Serving archive: {archive_path}, size: {archive_size} bytes")
+    logger.info(f"📦 Archive size: {archive_size} bytes ({archive_size / (1024*1024):.2f} MB)")
     
     if archive_size == 0:
-        logger.error(f"Archive is empty: {archive_path}")
+        logger.error(f"❌ Archive is empty!")
         raise HTTPException(status_code=500, detail="Архив пустой")
     
-    # ВАЖНО: Добавляем фоновую задачу для удаления после скачивания
+    # Добавляем фоновую задачу для удаления
     background_tasks.add_task(cleanup_task_after_download, task_id)
-    logger.info(f"🗑️  Scheduled cleanup for task {task_id} after download")
+    logger.info(f"🗑️  Scheduled cleanup for task {task_id}")
     
+    logger.info(f"✅ Serving archive: {archive_path.name} ({archive_size} bytes)")
+    
+    # Возвращаем файл
     return FileResponse(
-        path=archive_path,
+        path=str(archive_path),
         filename=f"unique_videos_{task_id}.zip",
-        media_type='application/zip'
+        media_type='application/zip',
+        headers={
+            "Content-Disposition": f'attachment; filename="unique_videos_{task_id}.zip"'
+        }
     )
+
 
 
 @app.get("/api/download/{task_id}/{filename}")
