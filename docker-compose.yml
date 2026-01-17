@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./uniqueizer_back
+      dockerfile: Dockerfile
+    container_name: uniqueizer_backend
+    ports:
+      - "5847:5847"
+    environment:
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+      - TEMP_FILE_CLEANUP_HOURS=24
+      - MAX_UPLOAD_SIZE_MB=500
+    volumes:
+      - ./uniqueizer_back/uploads:/app/uploads
+      - ./uniqueizer_back/outputs:/app/outputs
+    restart: unless-stopped
+    networks:
+      - uniqueizer_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5847/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./uniqueizer_front
+      dockerfile: Dockerfile
+    container_name: uniqueizer_frontend
+    ports:
+      - "3721:3721"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - uniqueizer_network
+    environment:
+      - REACT_APP_API_URL=http://localhost:5847
+
+networks:
+  uniqueizer_network:
+    driver: bridge
+
+volumes:
+  uploads:
+  outputs:

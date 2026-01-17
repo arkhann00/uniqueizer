@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Сервис Уникализации Видео</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 28px;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+
+      .upload-area {
+        border: 3px dashed #cbd5e0;
+        border-radius: 15px;
+        padding: 60px 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f7fafc;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .upload-area:hover {
+        border-color: #667eea;
+        background: #edf2f7;
+        transform: translateY(-2px);
+      }
+
+      .upload-area.dragover {
+        border-color: #667eea;
+        background: #e6f2ff;
+        border-style: solid;
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .upload-icon {
+        font-size: 64px;
+        color: #667eea;
+        margin-bottom: 20px;
+        transition: transform 0.3s ease;
+      }
+
+      .upload-area:hover .upload-icon {
+        transform: scale(1.1);
+      }
+
+      .upload-text {
+        font-size: 18px;
+        color: #333;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .upload-hint {
+        font-size: 14px;
+        color: #718096;
+        margin-bottom: 20px;
+      }
+
+      .upload-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .upload-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+      }
+
+      .upload-button:active {
+        transform: translateY(0);
+      }
+
+      #fileInput {
+        display: none;
+      }
+
+      .file-info {
+        margin-top: 30px;
+        display: none;
+      }
+
+      .file-item {
+        background: #f7fafc;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        border: 1px solid #e2e8f0;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .file-icon {
+        font-size: 40px;
+        color: #667eea;
+      }
+
+      .file-details {
+        flex: 1;
+      }
+
+      .file-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 5px;
+        word-break: break-word;
+      }
+
+      .file-size {
+        font-size: 13px;
+        color: #718096;
+      }
+
+      .upload-submit {
+        width: 100%;
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: all 0.3s ease;
+        display: none;
+      }
+
+      .upload-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+      }
+
+      .format-hint {
+        text-align: center;
+        font-size: 12px;
+        color: #a0aec0;
+        margin-top: 15px;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .copies-input {
+        width: 100%;
+        margin-top: 20px;
+      }
+
+      .copies-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+      }
+
+      .copies-controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+      }
+
+      .copies-slider {
+        flex: 1;
+        height: 6px;
+        border-radius: 5px;
+        background: #e2e8f0;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .copies-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #667eea;
+        cursor: pointer;
+      }
+
+      .copies-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #667eea;
+        cursor: pointer;
+        border: none;
+      }
+
+      .copies-number {
+        width: 80px;
+        padding: 8px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 16px;
+      }
+
+      .processing {
+        text-align: center;
+        padding: 30px;
+        display: none;
+      }
+
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .download-section {
+        display: none;
+        margin-top: 30px;
+      }
+
+      .download-all {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+      }
+
+      .download-all:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      .files-list {
+        max-height: 300px;
+        overflow-y: auto;
+        background: #f7fafc;
+        border-radius: 10px;
+        padding: 15px;
+      }
+
+      .download-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+
+      .download-btn {
+        background: #48bb78;
+        color: white;
+        border: none;
+        padding: 6px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s ease;
+      }
+
+      .download-btn:hover {
+        background: #38a169;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 10px;
+      }
+
+      /* Новый стиль для кнопки "Начать заново" */
+      .restart-button {
+        width: 100%;
+        background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 15px;
+        transition: all 0.3s ease;
+      }
+
+      .restart-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 101, 101, 0.4);
+      }
+
+      /* Уведомление о скачивании */
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #48bb78;
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        display: none;
+        animation: slideIn 0.3s ease;
+        z-index: 1000;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .notification.show {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Уведомление -->
+    <div class="notification" id="notification"></div>
+
+    <div class="container">
+      <h1>🎬 Уникализация Видео</h1>
+      <p class="subtitle">Создание технически уникальных копий</p>
+
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📹</div>
+        <div class="upload-text">Перетащите видео сюда</div>
+        <div class="upload-hint">или</div>
+        <button
+          class="upload-button"
+          onclick="document.getElementById('fileInput').click()"
+        >
+          Выбрать файл
+        </button>
+        <input type="file" id="fileInput" accept="video/*" />
+      </div>
+
+      <div class="format-hint">
+        Поддерживаемые форматы: MP4, AVI, MOV, MKV, WebM • Без ограничений по
+        размеру
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-item" id="selectedFile"></div>
+
+        <div class="copies-input">
+          <label class="copies-label"
+            >Количество копий: <span id="copiesValue">10</span></label
+          >
+          <div class="copies-controls">
+            <input
+              type="range"
+              min="1"
+              max="100"
+              value="10"
+              class="copies-slider"
+              id="copiesSlider"
+            />
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value="10"
+              class="copies-number"
+              id="copiesNumber"
+            />
+          </div>
+        </div>
+
+        <button class="upload-submit" id="startProcessing">
+          Создать уникальные видео
+        </button>
+      </div>
+
+      <div class="processing" id="processingSection">
+        <div class="spinner"></div>
+        <div id="processingText">Обработка: 0 / 0</div>
+        <div class="progress-bar" style="display: block; margin-top: 20px">
+          <div class="progress-fill" id="mainProgress"></div>
+        </div>
+      </div>
+
+      <div class="download-section" id="downloadSection">
+        <button class="download-all" id="downloadAll">
+          📦 Скачать все видео (ZIP)
+        </button>
+        <div class="files-list" id="filesList"></div>
+        <button class="restart-button" id="restartButton">
+          🔄 Начать заново
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://0.0.0.0:8000";
+      let selectedFile = null;
+      let currentTaskId = null;
+
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const fileInfo = document.getElementById("fileInfo");
+      const uploadSubmit = document.getElementById("startProcessing");
+      const copiesSlider = document.getElementById("copiesSlider");
+      const copiesNumber = document.getElementById("copiesNumber");
+      const copiesValue = document.getElementById("copiesValue");
+
+      // Функция показа уведомления
+      function showNotification(message, duration = 3000) {
+        const notification = document.getElementById("notification");
+        notification.textContent = message;
+        notification.classList.add("show");
+
+        setTimeout(() => {
+          notification.classList.remove("show");
+        }, duration);
+      }
+
+      // Функция сброса состояния
+      function resetToInitialState() {
+        // Сбрасываем переменные
+        selectedFile = null;
+        currentTaskId = null;
+
+        // Скрываем все секции
+        fileInfo.style.display = "none";
+        document.getElementById("processingSection").style.display = "none";
+        document.getElementById("downloadSection").style.display = "none";
+        uploadSubmit.style.display = "none";
+
+        // Показываем зону загрузки
+        uploadArea.style.display = "block";
+        document.querySelector(".format-hint").style.display = "block";
+
+        // Очищаем содержимое
+        document.getElementById("selectedFile").innerHTML = "";
+        document.getElementById("filesList").innerHTML = "";
+        document.getElementById("mainProgress").style.width = "0%";
+
+        // Сбрасываем input файла
+        fileInput.value = "";
+
+        // Сбрасываем количество копий
+        copiesSlider.value = 10;
+        copiesNumber.value = 10;
+        copiesValue.textContent = 10;
+
+        console.log("✅ State reset to initial");
+      }
+
+      copiesSlider.addEventListener("input", (e) => {
+        copiesNumber.value = e.target.value;
+        copiesValue.textContent = e.target.value;
+      });
+
+      copiesNumber.addEventListener("input", (e) => {
+        const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
+        copiesSlider.value = value;
+        copiesNumber.value = value;
+        copiesValue.textContent = value;
+      });
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        uploadArea.addEventListener(eventName, () => {
+          uploadArea.classList.add("dragover");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        uploadArea.addEventListener(eventName, () => {
+          uploadArea.classList.remove("dragover");
+        });
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+
+      function handleFile(file) {
+        if (!file.type.startsWith("video/")) {
+          alert("Пожалуйста, выберите видео файл");
+          return;
+        }
+
+        selectedFile = file;
+        displaySelectedFile(file);
+      }
+
+      function displaySelectedFile(file) {
+        fileInfo.style.display = "block";
+        document.getElementById("selectedFile").innerHTML = `
+          <div class="file-icon">🎥</div>
+          <div class="file-details">
+            <div class="file-name">${file.name}</div>
+            <div class="file-size">${formatFileSize(file.size)}</div>
+          </div>
+        `;
+        uploadSubmit.style.display = "block";
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes === 0) return "0 Bytes";
+        const k = 1024;
+        const sizes = ["Bytes", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (
+          Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+        );
+      }
+
+      uploadSubmit.addEventListener("click", async () => {
+        if (!selectedFile) {
+          alert("Выберите файл");
+          return;
+        }
+
+        const copiesCount = parseInt(copiesNumber.value);
+        fileInfo.style.display = "none";
+        document.getElementById("processingSection").style.display = "block";
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("copies_count", copiesCount);
+        formData.append("output_format", "mp4");
+
+        try {
+          const response = await fetch(`${API_URL}/api/upload`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          currentTaskId = data.task_id;
+
+          checkStatus(copiesCount);
+        } catch (error) {
+          alert("Ошибка загрузки: " + error.message);
+          document.getElementById("processingSection").style.display = "none";
+          fileInfo.style.display = "block";
+          uploadSubmit.style.display = "block";
+        }
+      });
+
+      async function checkStatus(totalCopies) {
+        const interval = setInterval(async () => {
+          try {
+            const response = await fetch(
+              `${API_URL}/api/status/${currentTaskId}`,
+            );
+            const data = await response.json();
+
+            const progress = (data.progress / totalCopies) * 100;
+            document.getElementById("mainProgress").style.width =
+              progress + "%";
+            document.getElementById("processingText").textContent =
+              `Обработка: ${data.progress} / ${totalCopies}`;
+
+            if (data.status === "completed") {
+              clearInterval(interval);
+              showResults();
+            } else if (data.status === "failed") {
+              clearInterval(interval);
+              alert("Ошибка обработки: " + data.message);
+              resetToInitialState();
+            }
+          } catch (error) {
+            console.error("Ошибка проверки статуса:", error);
+          }
+        }, 1000);
+      }
+
+      async function showResults() {
+        document.getElementById("processingSection").style.display = "none";
+        document.getElementById("downloadSection").style.display = "block";
+
+        try {
+          const response = await fetch(
+            `${API_URL}/api/result/${currentTaskId}`,
+          );
+          const data = await response.json();
+
+          const filesList = document.getElementById("filesList");
+          filesList.innerHTML = "";
+
+          data.files.forEach((filename) => {
+            const item = document.createElement("div");
+            item.className = "download-item";
+            item.innerHTML = `
+              <span>📹 ${filename}</span>
+              <button class="download-btn" onclick="downloadFile('${filename}')">
+                Скачать
+              </button>
+            `;
+            filesList.appendChild(item);
+          });
+        } catch (error) {
+          alert("Ошибка получения результатов");
+        }
+      }
+
+      // ОБРАБОТЧИК СКАЧИВАНИЯ АРХИВА С АВТОСБРОСОМ
+      document.getElementById("downloadAll").addEventListener("click", () => {
+        // Показываем уведомление
+        showNotification("📦 Скачивание началось...", 2000);
+
+        // Открываем ссылку для скачивания
+        const downloadUrl = `${API_URL}/api/download/archive/${currentTaskId}`;
+
+        // Создаем невидимую ссылку для скачивания
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = `unique_videos_${currentTaskId}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Задержка перед сбросом (даем время на начало скачивания)
+        setTimeout(() => {
+          showNotification("✅ Файлы скачаны и удалены с сервера", 3000);
+
+          // Еще небольшая задержка перед сбросом интерфейса
+          setTimeout(() => {
+            resetToInitialState();
+          }, 1500);
+        }, 2000);
+      });
+
+      // КНОПКА "НАЧАТЬ ЗАНОВО"
+      document.getElementById("restartButton").addEventListener("click", () => {
+        if (
+          confirm(
+            "Вы уверены? Все несохраненные файлы будут удалены с сервера.",
+          )
+        ) {
+          // Удаляем задачу на сервере
+          if (currentTaskId) {
+            fetch(`${API_URL}/api/task/${currentTaskId}`, {
+              method: "DELETE",
+            })
+              .then(() => {
+                showNotification("🗑️ Файлы удалены", 2000);
+              })
+              .catch((error) => {
+                console.error("Error deleting task:", error);
+              });
+          }
+
+          // Сбрасываем состояние
+          resetToInitialState();
+        }
+      });
+
+      function downloadFile(filename) {
+        window.open(
+          `${API_URL}/api/download/${currentTaskId}/${filename}`,
+          "_blank",
+        );
+      }
+    </script>
+  </body>
+</html>
