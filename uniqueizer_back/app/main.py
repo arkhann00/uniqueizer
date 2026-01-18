@@ -156,17 +156,58 @@ async def get_status(task_id: str):
     """
     task = processor.get_task_status(task_id)
     
+    # Если задачи нет в памяти, проверяем файловую систему
     if not task:
-        logger.warning(f"Task not found: {task_id}")
+        logger.warning(f"⚠️  Task not in memory, checking filesystem: {task_id}")
+        
+        task_dir = settings.output_dir / task_id
+        
+        # Проверяем существование директории задачи
+        if task_dir.exists():
+            # Считаем сколько видео уже создано
+            video_files = list(task_dir.glob("video_*.mp4"))
+            zip_files = list(task_dir.glob("*.zip"))
+            
+            # Если есть архив - задача завершена
+            if zip_files:
+                logger.info(f"✅ Task completed (found on disk): {task_id}")
+                return ProcessStatus(
+                    task_id=task_id,
+                    status="completed",
+                    progress=100,
+                    total_copies=len(video_files),
+                    message="Обработка завершена"
+                )
+            
+            # Если только видео без архива - еще обрабатывается
+            if video_files:
+                # Примерный прогресс по количеству файлов
+                # Предполагаем что всего будет 10 копий (стандарт)
+                estimated_total = 10  # можно брать из параметров запроса
+                progress = int((len(video_files) / estimated_total) * 100)
+                
+                logger.info(f"📊 Task in progress (found {len(video_files)} videos): {task_id}")
+                return ProcessStatus(
+                    task_id=task_id,
+                    status="processing",
+                    progress=min(progress, 99),  # Не показываем 100% пока нет архива
+                    total_copies=estimated_total,
+                    message=f"Создано {len(video_files)} из {estimated_total} копий"
+                )
+        
+        # Задача не найдена нигде
+        logger.error(f"❌ Task not found: {task_id}")
         raise HTTPException(status_code=404, detail="Задача не найдена")
     
+    # Задача есть в памяти - возвращаем ее статус
     return ProcessStatus(
         task_id=task_id,
         status=task['status'],
         progress=task['progress'],
-        total_copies=task['total'],
+        total_copies=task.get('total', 10),
         message=task.get('error')
     )
+
 
 
 @app.get("/api/result/{task_id}", response_model=ProcessResult)
