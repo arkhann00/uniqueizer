@@ -52,47 +52,45 @@ class VideoProcessor:
             except Exception as e:
                 logger.error(f"Error in cleanup scheduler: {str(e)}", exc_info=True)
     
-    async def process_video(self, input_file, copies_count, output_format):
+    async def process_video(
+        self, 
+        input_file: Path, 
+        copies_count: int,
+        output_format: str = "mp4"
+    ) -> str:
+        """
+        Обрабатывает видео и создает N уникальных копий
+        
+        Returns:
+            task_id для отслеживания прогресса
+        """
         task_id = str(uuid.uuid4())
         
-        # Создаем задачу
+        # Создаем директорию для этой задачи
+        task_dir = settings.output_dir / task_id
+        task_dir.mkdir(exist_ok=True)
+        
+        logger.info(f"Created task {task_id}, output dir: {task_dir}")
+        logger.info(f"Input file: {input_file}, exists: {input_file.exists()}")
+        
+        # Инициализируем задачу
         self.active_tasks[task_id] = {
             'status': 'processing',
             'progress': 0,
             'total': copies_count,
             'files': [],
-            'archive': None,
-            'error': None
+            'created_at': datetime.now(),
+            'last_accessed': datetime.now(),
+            'task_dir': str(task_dir),
+            'input_file': str(input_file),
         }
         
-        try:
-            # Обработка видео...
-            for i in range(copies_count):
-                # Создание копии
-                # ...
-                
-                # Обновляем прогресс
-                self.active_tasks[task_id]['progress'] = int((i + 1) / copies_count * 100)
-                self.active_tasks[task_id]['files'].append(filename)
-            
-            # Создание архива
-            # ...
-            
-            # Помечаем как завершенную
-            self.active_tasks[task_id]['status'] = 'completed'
-            self.active_tasks[task_id]['progress'] = 100
-            self.active_tasks[task_id]['archive'] = archive_name
-            
-            # НЕ УДАЛЯЕМ ЗАДАЧУ! Пусть остается в памяти
-            # del self.active_tasks[task_id]  # ← УДАЛИТЕ ЭТУ СТРОКУ
-            
-        except Exception as e:
-            logger.error(f"Error processing task {task_id}: {e}")
-            self.active_tasks[task_id]['status'] = 'error'
-            self.active_tasks[task_id]['error'] = str(e)
+        # Запускаем обработку в фоне
+        asyncio.create_task(
+            self._process_task(task_id, input_file, copies_count, task_dir, output_format)
+        )
         
         return task_id
-
     
     async def _process_task(
         self,
